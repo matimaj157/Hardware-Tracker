@@ -1,0 +1,189 @@
+---
+- name: Gather system's info
+  hosts: all
+  gather_facts: yes
+  ignore_errors: yes
+  ignore_unreachable: yes
+  tasks:
+    - name: Set date
+      set_fact:
+        date: "{{ lookup('pipe', 'date +%Y-%m-%d') }}"
+      delegate_to: localhost
+      run_once: yes
+
+    - name: Connectivity check
+      block:
+        - name: ICMP response check
+          shell: command ping -c 5 {{ inventory_hostname }}
+          register: icmp_result
+
+        - name: Set variable
+          set_fact:
+            icmp_response: "True"
+          when: icmp_result.rc == 0
+      delegate_to: localhost
+      
+    - name: Gather general system information
+      block:
+        - name: Hostname check
+          shell: hostname
+          register: hostname
+
+        - name: Distro check
+          shell: cat /etc/os-release | grep 'PRETTY_NAME' | sed 's/PRETTY_NAME=//; s/"//g'
+          register: distro
+
+        - name: Serial Number check
+          shell: dmidecode -t 2 | grep "Serial Number" | sed 's/^[ \t]*//'
+          register: sn
+
+        - name: Product Name check
+          shell: dmidecode -t 2 | grep "Product Name" | sed 's/^[ \t]*//'
+          register: pn
+
+        - name: Users check
+          shell: awk -F ":" '{print $1}' /etc/shadow
+          register: users
+
+        - name: Convert output to a list  
+          set_fact:
+            user_list: "{{ users.stdout_lines }}"
+      become: yes
+      when: icmp_result.rc == 0
+    
+    - name: Check Disks, NICs and VMs
+      block:
+        - name: Disks check
+          shell: lsblk -o NAME,KNAME,MODEL,SERIAL,SIZE,STATE,MIN-IO,VENDOR -d
+          register: disks
+
+        - name: Convert output to a list
+          set_fact:
+            disk_list: "{{ disks.stdout_lines }}"
+
+        - name: PCI devices check
+          shell: lspci -nn | grep -i "ethernet"
+          register: pci_devs
+
+        - name: VMs check
+          shell: virsh list --all
+          register: vms
+
+        - name: Network interfaces check
+          shell: "ip -o link show | awk -F': ' '{print $2}' | grep -v '^vnet'"
+          register: network_interfaces
+
+        - name: Convert output to a list
+          set_fact:
+            network_interfaces_list: "{{ network_interfaces.stdout_lines }}"
+
+        - name: Network interfaces parameters check 
+          shell: "ethtool -m {{ item }} | grep -e 'Vendor name' -e 'Vendor PN' -e 'Vendor SN' -e 'Transceiver type'"
+          loop: "{{ network_interfaces_list }}"
+          register: nics
+
+        - name: Collect stdout of successful results
+          set_fact:
+            nics_list: "{{ nics.results | selectattr('failed', '==', False) | map(attribute='stdout') | list }}"
+      become: yes
+      when: icmp_result.rc == 0 and user_list is defined
+
+    - name: Check available updates and last update date
+      block:
+        - name: Ubuntu/Debian
+          block:
+            - name: Check last update Ubuntu/Debian
+              shell: awk 'NR==2 {print $2 " " $3}' /var/log/apt/history.log
+              register: last_update
+
+            - name: Update apt cache
+              ansible.builtin.apt:
+                update_cache: yes
+              register: apt_cache_update
+
+            - name: Check for available upgrades
+              shell: apt list --upgradable 2>/dev/null | grep -v 'Listing...' | wc -l
+              register: debian_updates
+              async: 5
+              poll: 1 
+            
+            - name: Set variable
+              set_fact:
+                available_updates: "{{ debian_updates.stdout }}" 
+          when: ansible_os_family == "Debian" 
+
+        - name: RedHat-based systems
+          block:
+            - name: check last update CentOS/Rocky
+              shell: awk 'NR==1 {print $1}' /var/log/dnf.log
+              register: last_update
+
+            - name: Check for available updates
+              shell: yum check-update | grep -v 'Loaded plugins' | wc -l
+              register: centos_updates
+              ignore_errors: yes
+              async: 10
+              poll: 1 
+
+            - name: Set variable
+              set_fact:
+                available_updates: "{{ centos_updates.stdout }}"
+          when: ansible_os_family == "RedHat"
+      when: icmp_result.rc == 0 and user_list is defined
+
+    - name: Create a temporary directory for ansible
+      ansible.builtin.file:
+        path: /tmp/ansible
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+
+    - name: Append host data to individual temp files
+      copy:
+        dest: "/tmp/ansible/ansible_temp_data_{{ inventory_hostname }}.txt"
+        content: |
+            <tr>
+              <td>{{ icmp_response | default('False')}}</td>
+              <td>{{ hostname.stdout | default('-') }}</td>
+              <td>{{ inventory_hostname }}</td>
+              <td>{{ distro.stdout | default('-') }}</td>
+              <td>{{ sn.stdout | default('-') }}</td>
+              <td>{{ pn.stdout | default('-') }}</td>
+              <td>{{ user_list | default('-') }}</td>
+              <td><pve>{{ disk_list | default('-') }}</pve></td>
+              <td>{{ pci_devs.stdout | default('-') }}</td>
+              <td>{{ nics_list | default('-') }}</td>
+              <td><pve>{{ vms.stdout | default('-') }}</pve></td>
+              <td>{{ available_updates | default('-') }}</td>
+              <td>{{ last_update.stdout | default('-') }}</td>
+            </tr>
+      delegate_to: localhost
+
+    - name: Assemble host data into a single file
+      assemble:
+        src: /tmp/ansible
+        dest: /tmp/ansible/ansible_temp_data.txt
+        regexp: '^ansible_temp_data_.*\.txt$'
+      delegate_to: localhost
+      run_once: yes
+
+    - name: Generate HTML file
+      block:
+        - name: Read temp file content
+          set_fact:
+            servers: "{{ lookup('file', '/tmp/ansible/ansible_temp_data.txt') }}"
+
+        - name: Generate HTML file
+          template:
+            src: ./templates/report_template.html.j2
+            dest: ./index.html
+          vars: 
+            servers: "{{ servers }}"
+            date: "{{ date }}"
+
+        - name: Clean up
+          file:
+            path: /tmp/ansible
+            state: absent
+      delegate_to: localhost
+      run_once: yes

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Systems Information Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border: 1px solid black;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        td {
+            word-wrap: break-word;
+            white-space: normal;
+        }
+        .highlight-red {
+            background-color: red;
+            color: white;
+        }
+        .column-toggle {
+            margin-bottom: 10px;
+        }
+        .column-toggle label {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Systems Information Report | {{ date }}</h1>
+    <div class="column-toggle">
+        <label><input type="checkbox" checked onclick="toggleColumn(0)"> ICMP response</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(1)"> Hostname</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(2)"> HostOS IP</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(3)"> Distro</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(4)"> Serial number</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(5)"> Product name</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(6)"> Users</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(7)"> Disks</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(8)"> PCI devices</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(9)"> NICs details</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(10)"> VMs</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(11)"> Available updates</label>
+        <label><input type="checkbox" checked onclick="toggleColumn(12)"> Last update</label>
+    </div>
+
+    <table border="1" id="infoTable">
+        <tr>
+            <th>ICMP response</th>
+            <th>Hostname</th>
+            <th>HostOS IP</th>
+            <th>Distro</th>
+            <th>Serial number</th>
+            <th>Product name</th>
+            <th>Users</th>
+            <th>Disks</th>
+            <th>PCI devices</th>
+            <th>NICs details</th>
+            <th>VMs</th>
+            <th>Available updates</th>
+            <th>Last update</th>
+        </tr>
+        {{ servers }}
+    </table>
+
+    <script>
+        function toggleColumn(index) {
+            var table = document.getElementById("infoTable");
+            var rows = table.getElementsByTagName("tr");
+            for (var i = 0; i < rows.length; i++) {
+                var cells = rows[i].getElementsByTagName("td");
+                if (cells.length > 0) {
+                    cells[index].style.display = cells[index].style.display === "none" ? "" : "none";
+                }
+                
+                if (i === 0) {
+                    var th = rows[i].getElementsByTagName("th");
+                    th[index].style.display = th[index].style.display === "none" ? "" : "none";
+                }
+            }
+        }
+
+        function highlightRows() {
+            var table = document.getElementById("infoTable");
+            var rows = table.getElementsByTagName("tr");
+
+            for (var i = 1; i < rows.length; i++) {
+                var cells = rows[i].getElementsByTagName("td");
+
+                if (cells.length > 0) {
+                    var icmpResponse = cells[0].textContent.trim() === "True";
+
+                    if (!icmpResponse) {
+                        rows[i].classList.add("highlight-red");
+                    }
+                }
+            }
+        }
+
+        highlightRows();
+    </script>
+</body>
+</html>
