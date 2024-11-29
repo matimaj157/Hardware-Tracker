@@ -1,110 +1,126 @@
 <!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Systems Information Report</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-alpine.css">
     <style>
-        body {
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0px 5px 0px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1, label {
             font-family: Arial, sans-serif;
+            color: #171D20;
         }
-        th, td {
-            padding: 8px;
-            text-align: left;
-            border: 1px solid black;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+
+        button {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            padding: 5px 10px;
+            background-color: #F8F8F8;
+            color: #171D20;
+            border: 1px solid #BABFC7;
+            border-radius: 4px;
+            cursor: pointer;
         }
-        th {
-            background-color: #f2f2f2;
+
+        .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 10px;
+        } 
+
+        .ag-theme-alpine .ag-cell {
+            line-height: 1.5; 
         }
-        td {
-            word-wrap: break-word;
-            white-space: normal;
-        }
-        .highlight-red {
-            background-color: red;
-            color: white;
-        }
-        .column-toggle {
-            margin-bottom: 10px;
-        }
-        .column-toggle label {
-            margin-right: 10px;
+
+        #myGrid {
+            flex: 1;
+            padding-bottom: 10px;
         }
     </style>
 </head>
 <body>
     <h1>Systems Information Report | {{ date }}</h1>
-    <div class="column-toggle">
-        <label><input type="checkbox" checked onclick="toggleColumn(0)"> ICMP response</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(1)"> Hostname</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(2)"> HostOS IP</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(3)"> Distro</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(4)"> Serial number</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(5)"> Product name</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(6)"> Users</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(7)"> Disks</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(8)"> PCI devices</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(9)"> NICs details</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(10)"> VMs</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(11)"> Available updates</label>
-        <label><input type="checkbox" checked onclick="toggleColumn(12)"> Last update</label>
-    </div>
 
-    <table border="1" id="infoTable">
-        <tr>
-            <th>ICMP response</th>
-            <th>Hostname</th>
-            <th>HostOS IP</th>
-            <th>Distro</th>
-            <th>Serial number</th>
-            <th>Product name</th>
-            <th>Users</th>
-            <th>Disks</th>
-            <th>PCI devices</th>
-            <th>NICs details</th>
-            <th>VMs</th>
-            <th>Available updates</th>
-            <th>Last update</th>
-        </tr>
-        {{ servers }}
-    </table>
+    <div class="container">
+        <div class="column-toggle">
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'response')"> ICMP response </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'hostname')"> Hostname </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'ip')"> HostOS IP </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'distro')"> Distro </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'sn')"> S/N </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'pn')"> P/N </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'users')"> Users </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'drives')"> Drives </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'devices')"> PCI Devices </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'nics')"> NICs </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'vms')"> VMs </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'a_updates')"> Available Updates </label>
+            <label><input type="checkbox" checked onclick="toggleColumn(this,'l_updates')"> Last Update </label>
+        </div>
+        <div>
+            <button onclick="exportToCsv()">Export to CSV</button>
+        </div>
+    </div> 
 
+    <div class="ag-theme-alpine" id="myGrid" style="height: 500px; width: 100%;"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
     <script>
-        function toggleColumn(index) {
-            var table = document.getElementById("infoTable");
-            var rows = table.getElementsByTagName("tr");
-            for (var i = 0; i < rows.length; i++) {
-                var cells = rows[i].getElementsByTagName("td");
-                if (cells.length > 0) {
-                    cells[index].style.display = cells[index].style.display === "none" ? "" : "none";
-                }
-                
-                if (i === 0) {
-                    var th = rows[i].getElementsByTagName("th");
-                    th[index].style.display = th[index].style.display === "none" ? "" : "none";
-                }
+        const columnDefs = [
+            { headerName: "ICMP response", field: "response" },
+            { headerName: "Hostname", field: "hostname" },
+            { headerName: "HostOS IP", field: "ip" },
+            { headerName: "Distro", field: "distro" },
+            { headerName: "S/N", field: "sn" },
+            { headerName: "P/N", field: "pn" },
+            { headerName: "Users", field: "users" },
+            { headerName: "Drives", field: "drives" },
+            { headerName: "PCI Devices", field: "devices" },
+            { headerName: "NICs", field: "nics" },
+            { headerName: "VMs", field: "vms" },
+            { headerName: "Available Updates", field: "a_updates" },
+            { headerName: "Last Update", field: "l_updates" }
+        ];
+
+        const rowData = [
+            {{ servers }}
+        ];
+
+        const gridOptions = {
+            columnDefs: columnDefs,
+            rowData: rowData,
+            defaultColDef: {
+                minWidth: 150,
+                filter: true,
+                sortable: true,
+                autoHeight: true,
+                wrapText: true
             }
+        };
+        
+        function exportToCsv() {
+            gridOptions.api.exportDataAsCsv();
         }
 
-        function highlightRows() {
-            var table = document.getElementById("infoTable");
-            var rows = table.getElementsByTagName("tr");
-
-            for (var i = 1; i < rows.length; i++) {
-                var cells = rows[i].getElementsByTagName("td");
-
-                if (cells.length > 0) {
-                    var icmpResponse = cells[0].textContent.trim() === "True";
-
-                    if (!icmpResponse) {
-                        rows[i].classList.add("highlight-red");
-                    }
-                }
-            }
+        function toggleColumn(checkbox, columnIndex) {
+            const isVisible = checkbox.checked;
+            gridOptions.api.setColumnVisible(columnIndex, isVisible);
         }
 
-        highlightRows();
+        document.addEventListener('DOMContentLoaded', function() {
+            const eGridDiv = document.querySelector('#myGrid');
+            new agGrid.Grid(eGridDiv, gridOptions);
+        });
     </script>
 </body>
 </html>

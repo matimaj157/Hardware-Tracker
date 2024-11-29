@@ -65,6 +65,10 @@
           shell: lspci -nn | grep -i "ethernet"
           register: pci_devs
 
+        - name: Print PCI devices
+          debug:
+            var: pci_devs.stdout_lines
+
         - name: VMs check
           shell: virsh list --all
           register: vms
@@ -120,14 +124,14 @@
 
             - name: Check for available updates
               shell: yum check-update | grep -v 'Loaded plugins' | wc -l
-              register: centos_updates
+              register: redhat_updates
               ignore_errors: yes
               async: 10
               poll: 1 
 
             - name: Set variable
               set_fact:
-                available_updates: "{{ centos_updates.stdout }}"
+                available_updates: "{{ redhat_updates.stdout }}"
           when: ansible_os_family == "RedHat"
       when: icmp_result.rc == 0 and user_list is defined
 
@@ -142,21 +146,21 @@
       copy:
         dest: "/tmp/ansible/ansible_temp_data_{{ inventory_hostname }}.txt"
         content: |
-            <tr>
-              <td>{{ icmp_response | default('False')}}</td>
-              <td>{{ hostname.stdout | default('-') }}</td>
-              <td>{{ inventory_hostname }}</td>
-              <td>{{ distro.stdout | default('-') }}</td>
-              <td>{{ sn.stdout | default('-') }}</td>
-              <td>{{ pn.stdout | default('-') }}</td>
-              <td>{{ user_list | default('-') }}</td>
-              <td><pve>{{ disk_list | default('-') }}</pve></td>
-              <td>{{ pci_devs.stdout | default('-') }}</td>
-              <td>{{ nics_list | default('-') }}</td>
-              <td><pve>{{ vms.stdout | default('-') }}</pve></td>
-              <td>{{ available_updates | default('-') }}</td>
-              <td>{{ last_update.stdout | default('-') }}</td>
-            </tr>
+            {
+              response: "{{ icmp_response | default('False')}}",
+              hostname: "{{ hostname.stdout | default('-') }}",
+              ip: "{{ inventory_hostname }}",
+              distro: "{{ distro.stdout | default('-') }}",
+              sn: "{{ sn.stdout | default('-') }}",
+              pn: "{{ pn.stdout | default('-') }}",
+              users: {{ user_list | default('-') }},
+              drives: {{ disk_list | default('-') }},
+              devices: {{ pci_devs.stdout_lines | default('-') }},
+              nics: "{{ nics_list | default('-') }}",
+              vms: "{{ vms.stdout | default('-') }}",
+              a_updates: "{{ available_updates | default('-') }}",
+              l_updates: "{{ last_update.stdout | default('-') }}"
+            },
       delegate_to: localhost
 
     - name: Assemble host data into a single file
