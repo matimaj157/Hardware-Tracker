@@ -65,10 +65,6 @@
           shell: lspci -nn | grep -i "ethernet"
           register: pci_devs
 
-        - name: Print PCI devices
-          debug:
-            var: pci_devs.stdout_lines
-
         - name: VMs check
           shell: virsh list --all
           register: vms
