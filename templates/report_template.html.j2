@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -76,7 +75,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
     <script>
-        const columnDefs = [
+        const columnDefs = [          
+            {
+            headerName: "#", 
+            valueGetter: (params) => params.node.rowIndex + 1,
+            maxWidth: 100,
+            suppressMovable: true
+            },
             { headerName: "ICMP response", field: "response" },
             { headerName: "Hostname", field: "hostname" },
             { headerName: "HostOS IP", field: "ip" },
@@ -100,7 +105,6 @@
             columnDefs: columnDefs,
             rowData: rowData,
             defaultColDef: {
-                minWidth: 150,
                 filter: true,
                 sortable: true,
                 autoHeight: true,
