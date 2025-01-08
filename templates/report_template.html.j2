@@ -109,17 +109,17 @@
         };
         
         function exportToCsv() {
-            gridOptions.api.exportDataAsCsv();
+            gridApi.exportDataAsCsv();
         }
 
         function toggleColumn(checkbox, columnIndex) {
             const isVisible = checkbox.checked;
-            gridOptions.api.setColumnVisible(columnIndex, isVisible);
+            gridApi.setColumnsVisible([columnIndex], isVisible);
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            const eGridDiv = document.querySelector('#myGrid');
-            new agGrid.Grid(eGridDiv, gridOptions);
+            const GridDiv = document.querySelector('#myGrid');
+            gridApi = agGrid.createGrid(GridDiv, gridOptions);
         });
     </script>
 </body>
